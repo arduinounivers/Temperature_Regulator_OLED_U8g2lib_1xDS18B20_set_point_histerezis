@@ -1,2 +1,230 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+#include <Arduino.h>
+#include <SetPoint.h>
+#include <U8g2lib.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <EEPROM.h>
+
+OneWire bus(4); //SET UP ONE WIRE LIBRARY ON PIN 
+DallasTemperature sensors(&bus); //SETUP DALLAS TEMP TO WORK ON ONEWIRE BUS
+
+U8G2_SH1106_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+
+#define Thermo_width 41
+#define Thermo_height 64
+
+static const unsigned char Thermo_bits[] PROGMEM = {
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x7c, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc6, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x83, 0x01, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x01, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x01, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x01, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x01, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x01, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x01, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x01, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x01, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0x81, 0x01, 0x00, 0x00, 0x00, 0x00, 0x81, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0xb9, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0xb9, 0x0f, 0x00, 0x00,
+   0x00, 0x00, 0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0xb9, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0xb9, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0xb9, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0xb9, 0x0f, 0x00, 0x00,
+   0x00, 0x00, 0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0xb9, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0xb9, 0x01, 0x00, 0x00, 0x00, 0x00, 0xb9, 0x01, 0x00, 0x00,
+   0x00, 0x00, 0xb9, 0x01, 0x00, 0x00, 0x00, 0x80, 0xb9, 0x03, 0x00, 0x00,
+   0x00, 0xc0, 0x3c, 0x06, 0x00, 0x00, 0x00, 0x60, 0xfe, 0x0c, 0x00, 0x00,
+   0x00, 0x20, 0xff, 0x0d, 0x00, 0x00, 0x00, 0xb0, 0xff, 0x1b, 0x00, 0x00,
+   0x00, 0x90, 0xff, 0x1b, 0x00, 0x00, 0x00, 0xd0, 0xff, 0x17, 0x00, 0x00,
+   0x00, 0xd0, 0xff, 0x17, 0x00, 0x00, 0x00, 0xd0, 0xff, 0x17, 0x00, 0x00,
+   0x00, 0x90, 0xff, 0x1b, 0x00, 0x00, 0x00, 0xb0, 0xff, 0x1b, 0x00, 0x00,
+   0x00, 0x20, 0xff, 0x0d, 0x00, 0x00, 0x00, 0x60, 0xfe, 0x0c, 0x00, 0x00,
+   0x00, 0xc0, 0x38, 0x06, 0x00, 0x00, 0x00, 0x80, 0xc3, 0x03, 0x00, 0x00,
+   0x00, 0x00, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+
+int temperature; 
+int temp_set = 27;
+int hysterezis = 1;
+int relPin = 7;
+int buttonPin = 8;
+int buttonState = 0;
+int cont = 0;
+int val = 0;
+
+char temperatureString[6] = "-"; 
+char temp_setString[6] = "-";
+char hysterezisString[6] = "-";
+// SetPoint
+SetPoint setPoint;
+
+void draw(void) {
+// graphic commands to redraw the complete screen should be placed here 
+u8g2.drawXBMP( 0, 0, Thermo_width, Thermo_height, Thermo_bits); // THESE LINES CALL UPON THE SIZING AT THE TOP OF THE BITMAP CODING.
+u8g2.setFont(u8g2_font_logisoso34_tf);
+u8g2.drawStr(33,50,temperatureString);
+}
+const byte interruptPin = 2;
+const byte interruptPin_ = 3;
+
+void setup(void) {
+  pinMode(relPin, OUTPUT);
+  pinMode(buttonPin, INPUT_PULLUP);
+
+  Serial.begin(9600);
+  // Start up the library
+  sensors.begin();
+  
+  temp_set = EEPROM.read(0);
+  hysterezis = EEPROM.read(1);
+  Serial.print("Temperatura setata:  ");
+  Serial.println(temp_set);
+    
+  // Initialize the library instance
+  setPoint.begin(temp_set, hysterezis);
+  
+  // Set event handlers to two events  
+  setPoint.attach(RISING_EDGE, onBrightenUp);
+  setPoint.attach(FALLING_EDGE, onDarkenUp);      
+ 
+  pinMode(interruptPin, INPUT_PULLUP);
+  pinMode(interruptPin_, INPUT_PULLUP);
+//attachInterrupt(0, pin_ISR, FALLING);
+//attachInterrupt(1, pin_ISR_, FALLING);
+  attachInterrupt(digitalPinToInterrupt(interruptPin), pin_ISR, RISING);
+  attachInterrupt(digitalPinToInterrupt(interruptPin_), pin_ISR_, RISING);    
+
+  u8g2.begin();
+  u8g2.firstPage();
+  do {
+    u8g2.setFont(u8g2_font_ncenB14_tr);
+    u8g2.drawStr(0,16,"TERMOSTAT");
+    u8g2.setFont(u8g2_font_ncenB14_tr);
+    u8g2.drawStr(26,36,"ds18b20");
+    u8g2.setFont(u8g2_font_ncenB14_tr);
+    u8g2.drawStr(35,58,"OLED");
+  } while ( u8g2.nextPage() );
+
+  delay(1000);
+}
+
+void loop(void) {
+  hysterezis = EEPROM.read(1);
+u8g2.firstPage();
+do {
+     draw();
+     u8g2.setFont(u8g2_font_ncenB10_tr);
+     u8g2.drawStr(30,12,temp_setString);
+     u8g2.drawCircle(47, 1, 1, U8G2_DRAW_ALL);
+     u8g2.drawStr(53,12,"-temp_set");         
+     u8g2.drawStr(30,64,hysterezisString);
+     u8g2.drawCircle(43, 54, 1, U8G2_DRAW_ALL);
+     u8g2.drawStr(45,63,"-hysterezis");
+     u8g2.setFont(u8g2_font_ncenB18_tr);    
+     u8g2.drawCircle(80, 20, 4, U8G2_DRAW_ALL);
+     u8g2.drawCircle(80, 20, 4, U8G2_DRAW_ALL);
+     if (val == 1) {
+        u8g2.drawTriangle(94,25, 113,35, 94,45);
+        u8g2.drawLine(110, 35, 171, 35);
+        u8g2.drawLine(77, 35, 96, 35);        
+        u8g2.drawCircle(101, 35, 13, U8G2_DRAW_ALL);
+     }
+     else {
+        //u8g2.drawTriangle(94,25, 113,35, 94,45);
+        u8g2.drawLine(115, 35, 171, 35);
+        u8g2.drawLine(77, 35, 88, 35);        
+        u8g2.drawCircle(101, 35, 13, U8G2_DRAW_ALL);       
+     }
+     } while( u8g2.nextPage() );    
+  
+        // Initialize the library instance
+        setPoint.begin(temp_set, hysterezis);
+        setPoint.update(temperature);
+        // Stop the program for 100 ms
+        delay(100);
+        
+        sensors.requestTemperatures();
+        temperature = sensors.getTempCByIndex(0);
+                              
+        dtostrf(temperature, 2, 0, temperatureString);
+        dtostrf(temp_set, 2, 0, temp_setString);
+        dtostrf(hysterezis+1, 2, 0, hysterezisString); 
+               
+   buttonState = digitalRead(buttonPin);
+  if (buttonState == HIGH) { 
+     set_hys();                                  
+  }
+}
+
+void set_hys() {
+    Serial.print("Stare button:  ");
+    Serial.println(buttonState);
+    cont = EEPROM.read(1);
+    Serial.print("Histerezys:  ");
+    Serial.println(hysterezis);        
+    Serial.print("Cont:  ");
+    Serial.println(cont);            
+ 
+  if (cont == 0) {   
+    if (hysterezis == 0) {      
+      EEPROM.write(1, 1);
+      EEPROM.write(2, 1);
+      delay(200); 
+    } 
+  }
+    
+  if (cont == 1) {     
+    if (hysterezis == 1) { 
+      EEPROM.write(1, 2);
+      EEPROM.write(2, 2);      
+      delay(200); 
+     }   
+    }
+
+  if (cont == 2) {     
+    if (hysterezis == 2) {
+      EEPROM.write(1, 3);
+      EEPROM.write(2, 3);      
+      delay(200); 
+    }  
+    }
+    
+  if (cont == 3) {    
+    if (hysterezis == 3) {
+      EEPROM.write(1, 0);
+      EEPROM.write(2, 0);      
+      delay(200);  
+    }
+  }
+}
+
+void pin_ISR() {
+    temp_set = temp_set + 1;
+    EEPROM.update(0, temp_set);
+    delay(100);
+}
+void pin_ISR_() {
+    temp_set = temp_set -1;
+    EEPROM.update(0, temp_set);    
+    delay(100);
+}
+    
+// On brighten up
+void onBrightenUp() {
+  // Turn the LED on
+  digitalWrite(relPin, LOW);
+  val = 2;
+}
+
+// On darken up
+void onDarkenUp() {
+  // Turn the LED off
+  digitalWrite(relPin, HIGH);
+  val = 1;
+}
+
